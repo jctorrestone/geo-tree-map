@@ -3,6 +3,7 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="index.css">
         <title>treemap and geomap</title>
     </head>
     <body>
@@ -10,6 +11,18 @@
         <div id="chart"></div>
         <div id="legend"></div>
         <div id="map"></div>
+        <div id="map-legend">
+            <svg width="600" height="25">
+                <g transform="translate(0,0)">
+                    <title>PBI</title>
+                    <rect id="pbi-rect" fill="#002c5c" fill-opacity="1" width="25" height="25"></rect>
+                </g>
+                <g transform="translate(30,0)">
+                    <title>Hectáreas</title>
+                    <rect id="hect-rect" fill="#5c0000" fill-opacity="1" width="25" height="25"></rect>
+                </g>
+            </svg>
+        </div>
     </body>
     <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
     <script src="index.js"></script>
