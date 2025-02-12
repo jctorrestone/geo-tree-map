@@ -7,19 +7,19 @@
         <title>treemap and geomap</title>
     </head>
     <body>
-        <div id="total-amount"></div>
+        <div id="chart-total"></div>
         <div id="chart"></div>
-        <div id="legend"></div>
+        <div id="chart-legend"></div>
         <div id="map"></div>
         <div id="map-legend">
-            <svg width="600" height="25">
+            <svg width="800" height="25">
                 <g transform="translate(0,0)">
                     <title>PBI</title>
-                    <rect id="pbi-rect" fill="#002c5c" fill-opacity="1" width="25" height="25"></rect>
+                    <rect class="disabled" id="pbi-rect" fill="#002c5c" fill-opacity="1" width="25" height="25"></rect>
                 </g>
                 <g transform="translate(30,0)">
                     <title>Hectáreas</title>
-                    <rect id="hect-rect" fill="#5c0000" fill-opacity="1" width="25" height="25"></rect>
+                    <rect class="disabled" id="hect-rect" fill="#5c0000" fill-opacity="1" width="25" height="25"></rect>
                 </g>
             </svg>
         </div>

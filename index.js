@@ -1,34 +1,19 @@
-var count = 0;
-
-function uid(name) {
-  return new Id("O-" + (name == null ? "" : name + "-") + ++count);
-}
-
-function Id(id) {
-  this.id = id;
-  this.href = new URL(`#${id}`, location) + "";
-}
-
-Id.prototype.toString = function() {
-  return "url(" + this.href + ")";
-};
-
-const format1 = d3.format("$.3~s");
-const format2 = d3.format(".3~p");
+const currency_format = d3.format("$.3~s");
+const percent_format = d3.format(".3~p");
 const chart_width = 1189;
 const chart_height = 452.2;
 const removed_items = [];
 
 const chart = document.getElementById("chart");
-const total_amount = document.getElementById("total-amount");
-const legend = document.getElementById("legend");
+const chart_total = document.getElementById("chart-total");
+const chart_legend = document.getElementById("chart-legend");
 
 fetch("https://oec.world/api/olap-proxy/data?cube=trade_i_baci_a_92&drilldowns=Year,HS4&measures=Trade+Value&parents=true&Year=2022&Exporter+Country=saper")
     .then(response => response.json())
     .then(json => {
         let data = json.data;
 
-        // rearrange data
+        // Rearrange data
         data = data.reduce(
             (arr, obj) => {
                 if(!arr.find(item => item.name === obj["Section"])){
@@ -63,7 +48,7 @@ fetch("https://oec.world/api/olap-proxy/data?cube=trade_i_baci_a_92&drilldowns=Y
         data = {name: "root", children: data}
         
         // Specify the color scale.
-        const color = d3.scaleOrdinal(data.children.map(d => d.name), 
+        const chart_color = d3.scaleOrdinal(data.children.map(d => d.name), 
             [
                 "#F2AA86", "#F4CE0F", "#EDB73E", "#A0D447", "#A53200", "#ED40F2",
                 "#FF73FF", "#6DF2B0", "#DD0E31", "#EFDC81", "#02A347", "#2CBA0F",
@@ -72,28 +57,20 @@ fetch("https://oec.world/api/olap-proxy/data?cube=trade_i_baci_a_92&drilldowns=Y
             ]);
 
         // Create the SVG container.
-        const svg = d3.create("svg")
+        const chart_svg = d3.create("svg")
             .attr("viewBox", [0, 0, chart_width, chart_height])
             .attr("width", chart_width)
             .attr("height", chart_height)
             .attr("style", "max-width: 100%; height: auto; font: 20px sans-serif;");
 
-        drawTree(svg, data, color);
-        /* svg.append("text")
-            .attr("x", "50%")
-            .attr("text-anchor", "middle")
-            .attr("font-family", "Open Sans")
-            .attr("font-size", "18px")
-            .text(d => "Total: " + format1(total).replace(/G/,"B")); */
-
-        // Add a cell for each leaf of the hierarchy.
+        drawTree(chart_svg, data, chart_color);
 
         // Create the SVG for the legend container.
-        const svg_legend = d3.create("svg")
+        const legend_svg = d3.create("svg")
             .attr("width", chart_width)
             .attr("height", 25);
 
-        const legend_leaf = svg_legend.selectAll("g")
+        const legend_leaf = legend_svg.selectAll("g")
             .data(data.children.map(d => d.name))
             .join("g")
             .attr("transform", (d,i) => `translate(${i*30},0)`)
@@ -102,28 +79,31 @@ fetch("https://oec.world/api/olap-proxy/data?cube=trade_i_baci_a_92&drilldowns=Y
             .text(d => `${d}`)
 
         legend_leaf.append("rect")
-            .attr("id", d => (d.legendUid = uid("legend")).id)
-            .on("click", d => {
+            .attr("fill", d => chart_color(d))
+            .attr("fill-opacity", 1)
+            .attr("width", 25)
+            .attr("height", 25)
+            .on("click", (e, d) => {
                 d3.select("#chart").select("svg").selectAll("g").remove();
-                let index = data.children.findIndex(section => section.name === d.srcElement.__data__);
+                let index = data.children.findIndex(section => section.name === d);
+                
                 if(index != -1){
                     removed_items.push(data.children[index]);
                     data.children.splice(index, 1);
+                    e.target.classList = "disabled";
                 }
                 else {
-                    index = removed_items.findIndex(section => section.name === d.srcElement.__data__);
+                    index = removed_items.findIndex(section => section.name === d);
                     data.children.push(removed_items[index]);
                     removed_items.splice(index, 1);
+                    e.target.classList = "";
                 }
-                drawTree(svg, data, color);
-            })
-            .attr("fill", d => color(d))
-            .attr("fill-opacity", 1)
-            .attr("width", 25)
-            .attr("height", 25);
+                
+                drawTree(chart_svg, data, chart_color);
+            });
             
-        chart.append(svg.node());
-        legend.append(svg_legend.node());
+        chart.append(chart_svg.node());
+        chart_legend.append(legend_svg.node());
     });
 
 
@@ -144,20 +124,17 @@ function drawTree(svg, data, color) {
 
     leaf.append("title")
         .text(d => 
-            `${d.data.name}\n${format1(d.value).replace(/G/,"B")}\n${format2(d.value/root.value)}`
+            `${d.data.name}\n${currency_format(d.value).replace(/G/,"B")}\n${percent_format(d.value/root.value)}`
         );
 
     leaf.append("rect")
-        .attr("id", d => (d.leafUid = uid("leaf")).id)
         .attr("fill", d => { while (d.depth > 1) d = d.parent; return color(d.data.name); })
         .attr("fill-opacity", 1)
         .attr("width", d => d.x1 - d.x0)
         .attr("height", d => d.y1 - d.y0);
 
     leaf.append("clipPath")
-        .attr("id", d => (d.clipUid = uid("clip")).id)
-        .append("use")
-        .attr("xlink:href", d => d.leafUid.href);
+        .append("use");
 
     leaf.append("text")
         .attr("clip-path", d => d.clipUid)
@@ -169,14 +146,14 @@ function drawTree(svg, data, color) {
             return `${0.8*w}%`;
         })
         .selectAll("tspan")
-        .data(d => d.data.name.split(/(?=[A-Z][a-z])|\s+/g).concat(format2(d.value/root.value)))
+        .data(d => d.data.name.split(/(?=[A-Z][a-z])|\s+/g).concat(percent_format(d.value/root.value)))
         .join("tspan")
         .attr("x", 3)
         .attr("y", (d, i, nodes) => `${(i === nodes.length - 1) * 0.3 + 1.1 + i * 0.9}em`)
         .attr("fill-opacity", (d, i, nodes) => i === nodes.length - 1 ? 0.7 : null)
         .text(d => d);
 
-    total_amount.innerHTML = `Total: ${format1(root.value).replace(/G/,"B")}`;
+    chart_total.innerHTML = `Total: ${currency_format(root.value).replace(/G/,"B")}`;
 }
 
 const map = document.getElementById("map");
@@ -185,6 +162,8 @@ fetch("dptos.geojson")
     .then(response => response.json())
     .then(json => { 
         let data = json;
+        const map_width = 800;
+        const map_height = 600;
 
         data.features.sort((a,b) => b.properties.PBI - a.properties.PBI);
         const pbi_color = d3.scaleOrdinal(data.features.map(d => d.properties.NOMBDEP), 
@@ -206,17 +185,16 @@ fetch("dptos.geojson")
                 "#cc0000", "#d10000", "#d60000", "#db0000", "#e00000"
             ]);
 
-        let center = d3.geoCentroid(data);
-        let projection = d3.geoConicEqualArea()
+        const center = d3.geoCentroid(data);
+        const projection = d3.geoConicEqualArea()
             .parallels([0, 0])
-            .center(center);
-
-        projection.fitSize([800, 600], data);
+            .center(center)
+            .fitSize([map_width, map_height], data);
 
         const svg_map = d3.create("svg")
-            .attr("viewBox", [0, 0, 800, 600])
-            .attr("width", 800)
-            .attr("height", 600);
+            .attr("viewBox", [0, 0, map_width, map_height])
+            .attr("width", map_width)
+            .attr("height", map_height);
 
         const dept = svg_map.append("g")
             .attr("stroke", "#000000")
@@ -229,22 +207,31 @@ fetch("dptos.geojson")
             .join("path")
             .attr("d", d3.geoPath(projection));
 
-        d3.select("#pbi-rect").on("click", d => {
-            paintMap(dept, pbi_color);
-            dept.append("title")
-                .text(d => d.properties.NOMBDEP+"\n"+format1(d.properties.PBI));
-        });
-        d3.select("#hect-rect").on("click", d => {
-            paintMap(dept, hect_color);
-            dept.append("title")
-                .text(d => d.properties.NOMBDEP+"\n"+d.properties.HECTARES+" ha");
-        });
+        d3.select("#pbi-rect")
+            .on("click", (e, d) => {
+                paintMap(dept, pbi_color);
+                dept.append("title")
+                    .text(d => d.properties.NOMBDEP+"\n"+currency_format(d.properties.PBI));
+                e.target.classList = "";
+                d3.select("#hect-rect")
+                    .attr("class", "disabled");
+            });
+
+        d3.select("#hect-rect")
+            .on("click", (e, d) => {
+                paintMap(dept, hect_color);
+                dept.append("title")
+                    .text(d => d.properties.NOMBDEP+"\n"+d.properties.HECTARES+" ha");
+                e.target.classList = "";
+                d3.select("#pbi-rect")
+                    .attr("class", "disabled");
+            });
 
         map.append(svg_map.node());
     });
 
 function paintMap(dept, color){ 
     dept.select("title").remove();
-    dept.attr("stroke", "#FFFFFF");
-    dept.attr('fill',  d => color(d.properties.NOMBDEP));
+    dept.attr("stroke", "#FFFFFF")
+        .attr('fill',  d => color(d.properties.NOMBDEP));
 }

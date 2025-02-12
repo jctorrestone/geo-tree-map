@@ -1,3 +1,25 @@
+body title {
+    fill: white;
+}
+
+.disabled {
+    opacity: 0.2;
+}
+
 div {
     text-align: center;
+    padding-top: 10px;
+}
+
+path:hover {
+    opacity: 0.6;
+}
+
+rect:hover {
+    opacity: 0.6;
+}
+
+#chart-total {
+    font-size: 18px;
+    font-family: sans-serif;
 }
