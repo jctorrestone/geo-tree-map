@@ -11,41 +11,8 @@ const chart_legend = document.getElementById("chart-legend");
 fetch("https://oec.world/api/olap-proxy/data?cube=trade_i_baci_a_92&drilldowns=Year,HS4&measures=Trade+Value&parents=true&Year=2022&Exporter+Country=saper")
     .then(response => response.json())
     .then(json => {
-        let data = json.data;
-
         // Rearrange data
-        data = data.reduce(
-            (arr, obj) => {
-                if(!arr.find(item => item.name === obj["Section"])){
-                    let section = {name: obj["Section"], children: []};
-                    section.children = data.reduce(
-                        (arr2, obj2) => {
-                            if(section.name === obj2["Section"] && !arr2.find(item => item.name === obj2["HS2"])){
-                                let hs2 = {name: obj2["HS2"], children: []};
-                                hs2.children = data.reduce(
-                                    (arr3, obj3) => {
-                                        if(hs2.name === obj3["HS2"] && !arr3.find(item => item.name === obj3["HS4"])){
-                                            let hs4 = {name: obj3["HS4"], value: obj3["Trade Value"]};
-                                            arr3.push(hs4);
-                                        }
-                                        return arr3;
-                                    },
-                                    []
-                                );
-                                arr2.push(hs2);
-                            }
-                            return arr2;
-                        },
-                        []
-                    );
-                    arr.push(section);
-                }
-                return arr;
-            },
-            []
-        );
-
-        data = {name: "root", children: data}
+        const data = rearrange(json.data);
         
         // Specify the color scale.
         const chart_color = d3.scaleOrdinal(data.children.map(d => d.name), 
@@ -106,6 +73,34 @@ fetch("https://oec.world/api/olap-proxy/data?cube=trade_i_baci_a_92&drilldowns=Y
         chart_legend.append(legend_svg.node());
     });
 
+function rearrange(data){
+    const names = ["Section", "HS2", "HS4"];
+    const root = {name: "root", children: []}
+    
+    data.forEach((obj) => {
+        names.reduce((current, name) => {
+            let index = current.findIndex(element => element.name === obj[name])
+            if(index != -1) {
+                return current[index].children;
+            }
+            else {
+                let new_current = createObj(obj, name);
+                current.push(new_current);
+                return new_current.children? new_current.children : new_current;
+            }
+        }, root.children);
+    });
+
+    return root;
+}
+
+function createObj(obj, name){
+    if(name !== "HS4"){
+        return {name: obj[name], children: []};
+    }
+
+    return {name: obj[name], value: obj["Trade Value"]};
+}
 
 function drawTree(svg, data, color) {
     const root = d3.treemap()
@@ -161,7 +156,7 @@ const map = document.getElementById("map");
 fetch("dptos.geojson")
     .then(response => response.json())
     .then(json => { 
-        let data = json;
+        const data = json;
         const map_width = 800;
         const map_height = 600;
 
