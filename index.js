@@ -8,13 +8,14 @@ const chart = document.getElementById("chart");
 const chart_total = document.getElementById("chart-total");
 const chart_legend = document.getElementById("chart-legend");
 
+// Fetch the data from oec API
 fetch("https://oec.world/api/olap-proxy/data?cube=trade_i_baci_a_92&drilldowns=Year,HS4&measures=Trade+Value&parents=true&Year=2022&Exporter+Country=saper")
     .then(response => response.json())
     .then(json => {
-        // Rearrange data
+        // Rearrange the data
         const data = rearrange(json.data);
         
-        // Specify the color scale.
+        // Specify the color scale for the section properties
         const chart_color = d3.scaleOrdinal(data.children.map(d => d.name), 
             [
                 "#F2AA86", "#F4CE0F", "#EDB73E", "#A0D447", "#A53200", "#ED40F2",
@@ -23,28 +24,33 @@ fetch("https://oec.world/api/olap-proxy/data?cube=trade_i_baci_a_92&drilldowns=Y
                 "#9CF2CF", "#9C9FB2", "#847290", "red"
             ]);
 
-        // Create the SVG container.
+        // Create a SVG container for the treemap
         const chart_svg = d3.create("svg")
             .attr("viewBox", [0, 0, chart_width, chart_height])
             .attr("width", chart_width)
             .attr("height", chart_height)
             .attr("style", "max-width: 100%; height: auto; font: 20px sans-serif;");
 
+        // Draw the treemap inside the svg we just created
         drawTree(chart_svg, data, chart_color);
 
-        // Create the SVG for the legend container.
+        // Create a SVG container for the map legend
         const legend_svg = d3.create("svg")
             .attr("width", chart_width)
             .attr("height", 25);
 
+        // Join each section name with a g element and set its position
         const legend_leaf = legend_svg.selectAll("g")
             .data(data.children.map(d => d.name))
             .join("g")
             .attr("transform", (d,i) => `translate(${i*30},0)`)
 
+        // Assign a tooltip for each g element
         legend_leaf.append("title")
             .text(d => `${d}`)
 
+        // Assign a rect element for each g element with the respective color
+        // If the rect element is clicked it will enable or disable that section from the treemap
         legend_leaf.append("rect")
             .attr("fill", d => chart_color(d))
             .attr("fill-opacity", 1)
@@ -73,6 +79,7 @@ fetch("https://oec.world/api/olap-proxy/data?cube=trade_i_baci_a_92&drilldowns=Y
         chart_legend.append(legend_svg.node());
     });
 
+// This method restructures the data in order to match the {name, children} structure
 function rearrange(data){
     const names = ["Section", "HS2", "HS4"];
     const root = {name: "root", children: []}
@@ -94,6 +101,8 @@ function rearrange(data){
     return root;
 }
 
+// This method is called inside rearrange(), and returns a new object with the
+// corresponding name and empty children/value
 function createObj(obj, name){
     if(name !== "HS4"){
         return {name: obj[name], children: []};
@@ -102,7 +111,9 @@ function createObj(obj, name){
     return {name: obj[name], value: obj["Trade Value"]};
 }
 
+// This method draws the treemap with the corresponding data and color scale
 function drawTree(svg, data, color) {
+    // Create a treemap with the tiling method Squarify and sort the data
     const root = d3.treemap()
         .tile(d3.treemapSquarify)
         .size([chart_width, chart_height])
@@ -112,16 +123,19 @@ function drawTree(svg, data, color) {
         .sum(d => d.value)
         .sort((a, b) => b.value - a.value));
 
+    // Join every leaf of the tree with a g element and set its position
     const leaf = svg.selectAll("g")
         .data(root.leaves())
         .join("g")
         .attr("transform", d => `translate(${d.x0},${d.y0})`);
 
+    // Append a tooltip to each g element (leaf)
     leaf.append("title")
         .text(d => 
             `${d.data.name}\n${currency_format(d.value).replace(/G/,"B")}\n${percent_format(d.value/root.value)}`
         );
 
+    // Append a rect element to each g element with the respective color
     leaf.append("rect")
         .attr("fill", d => { while (d.depth > 1) d = d.parent; return color(d.data.name); })
         .attr("fill-opacity", 1)
@@ -131,6 +145,7 @@ function drawTree(svg, data, color) {
     leaf.append("clipPath")
         .append("use");
 
+    // Add text that will appear in each tile
     leaf.append("text")
         .attr("clip-path", d => d.clipUid)
         .attr("font-size", d => {
@@ -153,6 +168,7 @@ function drawTree(svg, data, color) {
 
 const map = document.getElementById("map");
 
+// Fetch the data from local source
 fetch("dptos.geojson")
     .then(response => response.json())
     .then(json => { 
@@ -160,6 +176,7 @@ fetch("dptos.geojson")
         const map_width = 800;
         const map_height = 600;
 
+        // Sort the data in order to specify the color scale for PBI
         data.features.sort((a,b) => b.properties.PBI - a.properties.PBI);
         const pbi_color = d3.scaleOrdinal(data.features.map(d => d.properties.NOMBDEP), 
             [
@@ -170,6 +187,7 @@ fetch("dptos.geojson")
                 "#0076e6", "#007aec", "#007df2", "#0081f9", "#0084ff"
             ]);
 
+        // Sort the data in order to specify the color scale for Area
         data.features.sort((a,b) => b.properties.HECTARES - a.properties.HECTARES);
         const hect_color = d3.scaleOrdinal(data.features.map(d => d.properties.NOMBDEP), 
             [
@@ -180,17 +198,20 @@ fetch("dptos.geojson")
                 "#cc0000", "#d10000", "#d60000", "#db0000", "#e00000"
             ]);
 
+        // Calculate the center of the map and set the data for the projection
         const center = d3.geoCentroid(data);
         const projection = d3.geoConicEqualArea()
             .parallels([0, 0])
             .center(center)
             .fitSize([map_width, map_height], data);
 
+        // Create the svg container for the geomap
         const svg_map = d3.create("svg")
             .attr("viewBox", [0, 0, map_width, map_height])
             .attr("width", map_width)
             .attr("height", map_height);
 
+        // Join each data.feature with with its respective path, and set its projection
         const dept = svg_map.append("g")
             .attr("stroke", "#000000")
             .attr("stroke-width", ".98")
@@ -202,6 +223,8 @@ fetch("dptos.geojson")
             .join("path")
             .attr("d", d3.geoPath(projection));
 
+        // If the rect tag for pbi is clicked, it will paint the map with the respective color
+        // and show the respective tooltips
         d3.select("#pbi-rect")
             .on("click", (e, d) => {
                 paintMap(dept, pbi_color);
@@ -212,6 +235,8 @@ fetch("dptos.geojson")
                     .attr("class", "disabled");
             });
 
+        // If the rect tag for area is clicked, it will paint the map with the respective color
+        // and show the respective tooltips
         d3.select("#hect-rect")
             .on("click", (e, d) => {
                 paintMap(dept, hect_color);
@@ -225,6 +250,7 @@ fetch("dptos.geojson")
         map.append(svg_map.node());
     });
 
+// This function removes every tooltip from each path and paints it with the chosen color
 function paintMap(dept, color){ 
     dept.select("title").remove();
     dept.attr("stroke", "#FFFFFF")
